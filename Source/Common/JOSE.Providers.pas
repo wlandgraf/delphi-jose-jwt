@@ -45,26 +45,24 @@ type
     class procedure EnsureDefaults; static;
     class function GetBase64: IJOSEBase64Provider; static;
     class function GetHMAC: IJOSEHmacProvider; static;
+    class procedure SetBase64(const AValue: IJOSEBase64Provider); static;
+    class procedure SetHMAC(const AValue: IJOSEHmacProvider); static;
 {$IFDEF RSA_SIGNING}
     class procedure EnsureSigningStack; static;
     class function GetCertificate: IJOSECertificateProvider; static;
     class function GetRSA: IJOSESignerRSA; static;
     class function GetECDSA: IJOSESignerECDSA; static;
+    class procedure SetCertificate(const AValue: IJOSECertificateProvider); static;
+    class procedure SetRSA(const AValue: IJOSESignerRSA); static;
+    class procedure SetECDSA(const AValue: IJOSESignerECDSA); static;
 {$ENDIF}
   public
-    class property Base64: IJOSEBase64Provider read GetBase64;
-    class property HMAC: IJOSEHmacProvider read GetHMAC;
+    class property Base64: IJOSEBase64Provider read GetBase64 write SetBase64;
+    class property HMAC: IJOSEHmacProvider read GetHMAC write SetHMAC;
 {$IFDEF RSA_SIGNING}
-    class property Certificate: IJOSECertificateProvider read GetCertificate;
-    class property RSA: IJOSESignerRSA read GetRSA;
-    class property ECDSA: IJOSESignerECDSA read GetECDSA;
-{$ENDIF}
-    class procedure SetBase64(const AProvider: IJOSEBase64Provider); static;
-    class procedure SetHMAC(const AProvider: IJOSEHmacProvider); static;
-{$IFDEF RSA_SIGNING}
-    class procedure SetCertificate(const AProvider: IJOSECertificateProvider); static;
-    class procedure SetRSA(const AProvider: IJOSESignerRSA); static;
-    class procedure SetECDSA(const AProvider: IJOSESignerECDSA); static;
+    class property Certificate: IJOSECertificateProvider read GetCertificate write SetCertificate;
+    class property RSA: IJOSESignerRSA read GetRSA write SetRSA;
+    class property ECDSA: IJOSESignerECDSA read GetECDSA write SetECDSA;
 {$ENDIF}
   end;
 
@@ -93,6 +91,16 @@ class function TJOSEProviders.GetHMAC: IJOSEHmacProvider;
 begin
   EnsureDefaults;
   Result := FHMAC;
+end;
+
+class procedure TJOSEProviders.SetBase64(const AValue: IJOSEBase64Provider);
+begin
+  FBase64 := AValue;
+end;
+
+class procedure TJOSEProviders.SetHMAC(const AValue: IJOSEHmacProvider);
+begin
+  FHMAC := AValue;
 end;
 
 {$IFDEF RSA_SIGNING}
@@ -126,34 +134,20 @@ begin
   Result := FECDSA;
 end;
 
-{$ENDIF}
-
-class procedure TJOSEProviders.SetBase64(const AProvider: IJOSEBase64Provider);
+class procedure TJOSEProviders.SetCertificate(const AValue: IJOSECertificateProvider);
 begin
-  FBase64 := AProvider;
-end;
-
-class procedure TJOSEProviders.SetHMAC(const AProvider: IJOSEHmacProvider);
-begin
-  FHMAC := AProvider;
-end;
-
-{$IFDEF RSA_SIGNING}
-
-class procedure TJOSEProviders.SetCertificate(const AProvider: IJOSECertificateProvider);
-begin
-  FCertificate := AProvider;
+  FCertificate := AValue;
   FRSA := nil;
 end;
 
-class procedure TJOSEProviders.SetRSA(const AProvider: IJOSESignerRSA);
+class procedure TJOSEProviders.SetRSA(const AValue: IJOSESignerRSA);
 begin
-  FRSA := AProvider;
+  FRSA := AValue;
 end;
 
-class procedure TJOSEProviders.SetECDSA(const AProvider: IJOSESignerECDSA);
+class procedure TJOSEProviders.SetECDSA(const AValue: IJOSESignerECDSA);
 begin
-  FECDSA := AProvider;
+  FECDSA := AValue;
 end;
 
 {$ENDIF}

@@ -121,8 +121,8 @@ begin
     '54h4FRWyuXpoQ';
   e64 := 'AQAB';
 
-  nJOSE := TBase64.Decode(n64);
-  eJOSE := TBase64.Decode(e64);
+  nJOSE := TBase64.URLDecode(n64);
+  eJOSE := TBase64.URLDecode(e64);
 
   nArr := nJOSE;
   eArr := eJOSE;

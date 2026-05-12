@@ -542,8 +542,6 @@ function TDefaultRSAProvider.VerifyWithCertificate(const AInput, ASignature, ACe
 var
   LRsa: PRSA;
 begin
-  TJOSEDefaultOpenSslPem.LoadOpenSSL;
-
   LRsa := LoadRSAPublicKeyFromCert(ACertificate);
   try
     Result := InternalVerify(AInput, ASignature, LRsa, AAlg);
@@ -614,8 +612,6 @@ var
   LSig: PECDSA_SIG;
   LShaHash: TBytes;
 begin
-  TJOSEDefaultOpenSslPem.LoadOpenSSL;
-
   LECKey := EVP_PKEY_get1_EC_KEY(APublicKey);
   if LECKey = nil then
     raise Exception.Create('[ECDSA] Error getting memory for ECDSA');
@@ -671,7 +667,6 @@ function TDefaultECDSAProvider.Sign(const AInput, APrivateKey: TBytes; AAlg: TEC
 var
   LKey: PEVP_PKEY;
 begin
-  TJOSEDefaultOpenSslPem.LoadOpenSSL;
   Result := [];
 
   LKey := LoadPrivateKey(APrivateKey);
@@ -688,8 +683,6 @@ var
   LSig: PECDSA_SIG;
   LShaHash: TBytes;
 begin
-  TJOSEDefaultOpenSslPem.LoadOpenSSL;
-
   Result := [];
   LECKey := EVP_PKEY_get1_EC_KEY(AKey);
   if LECKey = nil then
@@ -748,8 +741,6 @@ function TDefaultECDSAProvider.Verify(const AInput, ASignature, APublicKey: TByt
 var
   LPubKey: PEVP_PKEY;
 begin
-  TJOSEDefaultOpenSslPem.LoadOpenSSL;
-
   LPubKey := LoadPublicKey(APublicKey);
   try
     Result := InternalVerify(AInput, ASignature, LPubKey, AAlg);
@@ -801,8 +792,6 @@ function TDefaultECDSAProvider.VerifyWithCertificate(const AInput, ASignature, A
 var
   LKey: PEVP_PKEY;
 begin
-  TJOSEDefaultOpenSslPem.LoadOpenSSL;
-
   LKey := LoadPublicKeyFromCert(ACertificate, TJOSECertificatePublicKey.EC);
   try
     Result := InternalVerify(AInput, ASignature, LKey, AAlg);
@@ -940,9 +929,16 @@ begin
 end;
 
 function TDefaultBase64Provider.InternalEncode(const ASource: TJOSEBytes): TJOSEBytes;
+var
+  LEnc: TBase64Encoding;
 begin
   {$IF CompilerVersion >= 28}
-  Result := TNetEncoding.Base64.Encode(ASource.AsBytes);
+  LEnc := TBase64Encoding.Create(0);
+  try
+    Result := LEnc.Encode(ASource.AsBytes);
+  finally
+    LEnc.Free;
+  end;
   {$ELSE}
   Result := EncodeBase64(ASource.AsBytes);
   {$IFEND}
