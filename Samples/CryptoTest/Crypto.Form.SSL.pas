@@ -262,7 +262,6 @@ var
   //LKey: PEVP_PKEY;
   LAlg: Integer;
 begin
-  TECDSA.LoadOpenSSL;
   LBio := BIO_new(BIO_s_mem);
   try
     BIO_write(LBio, @ACertificate[0], Length(ACertificate));
