@@ -155,7 +155,7 @@ end;
 
 function TCryptoLibBase64Provider.Decode(const ASource: TJOSEBytes): TJOSEBytes;
 begin
-  Result := SbpBase64.TBase64.Default.Decode(ASource.AsString);
+  Result := SbpBase64.TBase64.Default.Decode(Trim(ASource.AsString));
 end;
 
 function TCryptoLibBase64Provider.TryDecode(const ASource: TJOSEBytes): TJOSEBytes;
@@ -165,7 +165,7 @@ var
   LText: string;
 begin
   Result.Clear;
-  LText := ASource.AsString;
+  LText := Trim(ASource.AsString);
   if LText = '' then
     Exit;
   SetLength(LBuf, SbpBase64.TBase64.Default.GetSafeByteCountForDecoding(LText));
@@ -175,7 +175,7 @@ end;
 
 function TCryptoLibBase64Provider.URLDecode(const ASource: TJOSEBytes): TJOSEBytes;
 begin
-  Result := SbpBase64.TBase64.Url.Decode(ASource.AsString);
+  Result := SbpBase64.TBase64.Url.Decode(Trim(ASource.AsString));
 end;
 
 function TCryptoLibBase64Provider.URLEncode(const ASource: TJOSEBytes): TJOSEBytes;
@@ -191,7 +191,7 @@ var
   LBufChars: Integer;
 begin
   Result.Clear;
-  LText := ASource.AsString;
+  LText := Trim(ASource.AsString);
   if LText = '' then
     Exit;
   LBufChars := Length(LText);
