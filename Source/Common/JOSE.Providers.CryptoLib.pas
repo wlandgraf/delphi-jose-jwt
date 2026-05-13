@@ -405,7 +405,6 @@ var
   LCert: IX509Certificate;
   LAlg, LExp: IDerObjectIdentifier;
 begin
-  Result := False;
   try
     LParser := TX509CertificateParser.Create;
     LCert := LParser.ReadCertificate(ACertificate);
@@ -477,7 +476,6 @@ function TCryptoLibRSAProvider.VerifyWithRsa(const AInput, ASignature: TBytes; c
 var
   LSigner: ISigner;
 begin
-  Result := False;
   try
     LSigner := TSignerUtilities.InitSigner(RsaMechanism(AAlg), False, AKey, nil);
     LSigner.BlockUpdate(AInput, 0, Length(AInput));
@@ -499,7 +497,6 @@ function TCryptoLibRSAProvider.Verify(const AInput, ASignature, AKey: TBytes; AA
 var
   LPub: IAsymmetricKeyParameter;
 begin
-  Result := False;
   try
     LPub := PemToPublicKey(AKey);
     Result := VerifyWithRsa(AInput, ASignature, LPub, AAlg);
@@ -512,7 +509,6 @@ function TCryptoLibRSAProvider.VerifyWithCertificate(const AInput, ASignature, A
 var
   LPub: IAsymmetricKeyParameter;
 begin
-  Result := False;
   try
     LPub := PemToPublicKey(ACertificate);
     Result := VerifyWithRsa(AInput, ASignature, LPub, AAlg);
@@ -629,7 +625,6 @@ function TCryptoLibECDSAProvider.VerifyWithEc(const AInput, ASignature: TBytes; 
 var
   LSigner: ISigner;
 begin
-  Result := False;
   try
     EnsureNamedCurve(AKey, AAlg);
     LSigner := TSignerUtilities.InitSigner(EcdsaMechanism(AAlg), False, AKey, nil);
@@ -652,7 +647,6 @@ function TCryptoLibECDSAProvider.Verify(const AInput, ASignature, APublicKey: TB
 var
   LPub: IAsymmetricKeyParameter;
 begin
-  Result := False;
   try
     LPub := PemToPublicKey(APublicKey);
     Result := VerifyWithEc(AInput, ASignature, LPub, AAlg);
@@ -665,7 +659,6 @@ function TCryptoLibECDSAProvider.VerifyWithCertificate(const AInput, ASignature,
 var
   LPub: IAsymmetricKeyParameter;
 begin
-  Result := False;
   try
     LPub := PemToPublicKey(ACertificate);
     Result := VerifyWithEc(AInput, ASignature, LPub, AAlg);

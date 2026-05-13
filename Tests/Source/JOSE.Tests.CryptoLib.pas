@@ -71,6 +71,7 @@ end;
 procedure TTestCryptoLibProviders.TearDown;
 begin
   TJOSECryptoLibProviders.Unregister;
+  TJOSEProviders.RegisterProvider;
   inherited;
 end;
 

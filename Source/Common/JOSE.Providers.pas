@@ -27,11 +27,16 @@ unit JOSE.Providers;
 interface
 
 uses
+  System.SysUtils,
   JOSE.Providers.Interfaces;
 
 type
+  /// <summary>Raised when a global provider slot is nil (e.g. after <c>Unregister</c>).</summary>
+  EJOSEProvidersNotRegistered = class(Exception);
+
   /// <summary>
-  ///   Global crypto/encoding providers.
+  ///   Global crypto/encoding providers. Default stack is registered from <c>initialization</c>;
+  ///   call <c>TJOSEProviders.RegisterDefault</c> again if you use <c>UnregisterDefault</c>.
   /// </summary>
   TJOSEProviders = class
   private
@@ -42,13 +47,16 @@ type
     class var FRSA: IJOSESignerRSA;
     class var FECDSA: IJOSESignerECDSA;
 {$ENDIF}
-    class procedure EnsureDefaults; static;
+    class procedure RequireBase64; static;
+    class procedure RequireHMAC; static;
+{$IFDEF RSA_SIGNING}
+    class procedure RequireSigningStack; static;
+{$ENDIF}
     class function GetBase64: IJOSEBase64Provider; static;
     class function GetHMAC: IJOSEHmacProvider; static;
     class procedure SetBase64(const AValue: IJOSEBase64Provider); static;
     class procedure SetHMAC(const AValue: IJOSEHmacProvider); static;
 {$IFDEF RSA_SIGNING}
-    class procedure EnsureSigningStack; static;
     class function GetCertificate: IJOSECertificateProvider; static;
     class function GetRSA: IJOSESignerRSA; static;
     class function GetECDSA: IJOSESignerECDSA; static;
@@ -57,6 +65,10 @@ type
     class procedure SetECDSA(const AValue: IJOSESignerECDSA); static;
 {$ENDIF}
   public
+    /// <summary>Delegates to <c>TJOSEDefaultProviders.Register</c>.</summary>
+    class procedure RegisterProvider; static;
+    /// <summary>Delegates to <c>TJOSEDefaultProviders.Unregister</c>.</summary>
+    class procedure UnregisterProvider; static;
     class property Base64: IJOSEBase64Provider read GetBase64 write SetBase64;
     class property HMAC: IJOSEHmacProvider read GetHMAC write SetHMAC;
 {$IFDEF RSA_SIGNING}
@@ -71,25 +83,33 @@ implementation
 uses
   JOSE.Providers.Default;
 
+resourcestring
+  SJOSEProvidersNotRegistered = 'JOSE global providers are not registered. Call TJOSEProviders.RegisterDefault or ' +
+    'TJOSECryptoLibProviders.Register.';
+
 { TJOSEProviders }
 
-class procedure TJOSEProviders.EnsureDefaults;
+class procedure TJOSEProviders.RequireBase64;
 begin
   if FBase64 = nil then
-    FBase64 := TDefaultBase64Provider.Create;
+    raise EJOSEProvidersNotRegistered.Create(SJOSEProvidersNotRegistered);
+end;
+
+class procedure TJOSEProviders.RequireHMAC;
+begin
   if FHMAC = nil then
-    FHMAC := TDefaultHmacProvider.Create;
+    raise EJOSEProvidersNotRegistered.Create(SJOSEProvidersNotRegistered);
 end;
 
 class function TJOSEProviders.GetBase64: IJOSEBase64Provider;
 begin
-  EnsureDefaults;
+  RequireBase64;
   Result := FBase64;
 end;
 
 class function TJOSEProviders.GetHMAC: IJOSEHmacProvider;
 begin
-  EnsureDefaults;
+  RequireHMAC;
   Result := FHMAC;
 end;
 
@@ -103,34 +123,43 @@ begin
   FHMAC := AValue;
 end;
 
+class procedure TJOSEProviders.RegisterProvider;
+begin
+  TJOSEDefaultProviders.Register;
+end;
+
+class procedure TJOSEProviders.UnregisterProvider;
+begin
+  TJOSEDefaultProviders.Unregister;
+end;
+
 {$IFDEF RSA_SIGNING}
 
-class procedure TJOSEProviders.EnsureSigningStack;
+class procedure TJOSEProviders.RequireSigningStack;
 begin
-  EnsureDefaults;
   if FCertificate = nil then
-    FCertificate := TDefaultCertificateProvider.Create;
+    raise EJOSEProvidersNotRegistered.Create(SJOSEProvidersNotRegistered);
   if FRSA = nil then
-    FRSA := TDefaultRSAProvider.Create(FCertificate);
+    raise EJOSEProvidersNotRegistered.Create(SJOSEProvidersNotRegistered);
   if FECDSA = nil then
-    FECDSA := TDefaultECDSAProvider.Create;
+    raise EJOSEProvidersNotRegistered.Create(SJOSEProvidersNotRegistered);
 end;
 
 class function TJOSEProviders.GetCertificate: IJOSECertificateProvider;
 begin
-  EnsureSigningStack;
+  RequireSigningStack;
   Result := FCertificate;
 end;
 
 class function TJOSEProviders.GetRSA: IJOSESignerRSA;
 begin
-  EnsureSigningStack;
+  RequireSigningStack;
   Result := FRSA;
 end;
 
 class function TJOSEProviders.GetECDSA: IJOSESignerECDSA;
 begin
-  EnsureSigningStack;
+  RequireSigningStack;
   Result := FECDSA;
 end;
 
@@ -151,5 +180,8 @@ begin
 end;
 
 {$ENDIF}
+
+initialization
+  TJOSEProviders.RegisterProvider;
 
 end.

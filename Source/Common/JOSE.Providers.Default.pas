@@ -54,6 +54,13 @@ type
     function Sign(const AInput, AKey: TBytes; AAlg: THMACAlgorithm): TBytes;
   end;
 
+  /// <summary>Wires default Delphi/OpenSSL-backed implementations into <c>TJOSEProviders</c>.</summary>
+  TJOSEDefaultProviders = class
+  public
+    class procedure Register; static;
+    class procedure Unregister; static;
+  end;
+
 {$IFDEF RSA_SIGNING}
 
   TDefaultCertificateProvider = class(TInterfacedObject, IJOSECertificateProvider)
@@ -83,15 +90,16 @@ type
 
   TDefaultECDSAProvider = class(TInterfacedObject, IJOSESignerECDSA)
   private
+    FCertificate: IJOSECertificateProvider;
     function LoadPublicKey(const AKey: TBytes): PEVP_PKEY;
     function LoadPrivateKey(const AKey: TBytes): PEVP_PKEY;
-    function LoadPublicKeyFromCert(const ACertificate: TBytes; AExpected: TJOSECertificatePublicKey): PEVP_PKEY;
     function InternalSign(const AInput: TBytes; AKey: PEVP_PKEY; AAlg: TECDSAAlgorithm): TBytes;
     function InternalVerify(const AInput, ASignature: TBytes; APublicKey: PEVP_PKEY; AAlg: TECDSAAlgorithm): Boolean;
     function HashFromBytes(const AInput: TBytes; AAlg: TECDSAAlgorithm): TBytes;
     function Sig2OctetSequence(ASignature: PECDSA_SIG; AAlg: TECDSAAlgorithm): TBytes;
     function OctetSequence2Sig(const ASignature: TBytes; AAlg: TECDSAAlgorithm): PECDSA_SIG;
   public
+    constructor Create(ACertificate: IJOSECertificateProvider);
     function Sign(const AInput, APrivateKey: TBytes; AAlg: TECDSAAlgorithm): TBytes;
     function Verify(const AInput, ASignature, APublicKey: TBytes; AAlg: TECDSAAlgorithm): Boolean;
     function VerifyWithCertificate(const AInput, ASignature, ACertificate: TBytes; AAlg: TECDSAAlgorithm): Boolean;
@@ -125,7 +133,8 @@ uses
   {$IF CompilerVersion >= 30 }
   System.Hash,
   {$IFEND}
-  System.Types;
+  System.Types,
+  JOSE.Providers;
 
 {$IFDEF RSA_SIGNING}
 
@@ -156,6 +165,8 @@ type
     class function LoadCertificate(const ACertificate: TBytes): PX509;
     class function LoadPublicKeyFromCert(const ACertificate: TBytes): PEVP_PKEY; overload;
     class function LoadPublicKeyFromCert(const ACertificate: TBytes; AExpected: TJOSECertificatePublicKey): PEVP_PKEY; overload;
+    /// <summary>SPKI PEM bytes to feed a BIO: certificate PEM yields <c>ACert.PublicKeyFromCertificate</c>, else <c>AKey</c>.</summary>
+    class function PublicKeyPemBytesFromKeyOrCert(const AKey: TBytes; const ACert: IJOSECertificateProvider): TBytes;
     class function PublicKeyFromCertificate(const ACertificate: TBytes): TBytes;
     class function VerifyCertificate(const ACertificate: TBytes; AExpected: TJOSECertificatePublicKey): Boolean;
     class property PEM_X509_CERTIFICATE: TBytes read FPEM_X509_CERTIFICATE;
@@ -241,6 +252,15 @@ begin
   finally
     X509_free(LCer);
   end;
+end;
+
+class function TJOSEDefaultOpenSslPem.PublicKeyPemBytesFromKeyOrCert(const AKey: TBytes; const ACert: IJOSECertificateProvider): TBytes;
+begin
+  if (Length(AKey) >= Length(FPEM_X509_CERTIFICATE)) and
+    CompareMem(@FPEM_X509_CERTIFICATE[0], @AKey[0], Length(FPEM_X509_CERTIFICATE)) then
+    Result := ACert.PublicKeyFromCertificate(AKey)
+  else
+    Result := AKey;
 end;
 
 class function TJOSEDefaultOpenSslPem.PublicKeyFromCertificate(const ACertificate: TBytes): TBytes;
@@ -420,24 +440,16 @@ end;
 function TDefaultRSAProvider.LoadPublicKey(const AKey: TBytes): PRSA;
 var
   LBio: PBIO;
-  LPubKey: TBytes;
+  LPem: TBytes;
 begin
   LBio := BIO_new(BIO_s_mem);
   try
-    if StartsWith(AKey, TJOSEDefaultOpenSslPem.PEM_X509_CERTIFICATE) then
-    begin
-      LPubKey := FCertificate.PublicKeyFromCertificate(AKey);
-      BIO_write(LBio, @LPubKey[0], Length(LPubKey));
-      Result := JoseSSL.PEM_read_bio_RSA_PUBKEY(LBio, nil, nil, nil);
-    end
+    LPem := TJOSEDefaultOpenSslPem.PublicKeyPemBytesFromKeyOrCert(AKey, FCertificate);
+    BIO_write(LBio, @LPem[0], Length(LPem));
+    if StartsWith(LPem, TJOSEDefaultOpenSslPem.PEM_PUBKEY_PKCS1) then
+      Result := PEM_read_bio_RSAPublicKey(LBio, nil, nil, nil)
     else
-    begin
-      BIO_write(LBio, @AKey[0], Length(AKey));
-      if StartsWith(AKey, TJOSEDefaultOpenSslPem.PEM_PUBKEY_PKCS1) then
-        Result := PEM_read_bio_RSAPublicKey(LBio, nil, nil, nil)
-      else
-        Result := JoseSSL.PEM_read_bio_RSA_PUBKEY(LBio, nil, nil, nil);
-    end;
+      Result := JoseSSL.PEM_read_bio_RSA_PUBKEY(LBio, nil, nil, nil);
 
     if Result = nil then
       raise ESignException.Create('[RSA] Unable to load public key: ' + JoseSSL.GetLastError);
@@ -509,26 +521,18 @@ function TDefaultRSAProvider.VerifyPublicKey(const AKey: TBytes): Boolean;
 var
   LBio: PBIO;
   LRsa: PRSA;
-  LPubKey: TBytes;
+  LPem: TBytes;
 begin
   TJOSEDefaultOpenSslPem.LoadOpenSSL;
 
   LBio := BIO_new(BIO_s_mem);
   try
-    if StartsWith(AKey, TJOSEDefaultOpenSslPem.PEM_X509_CERTIFICATE) then
-    begin
-      LPubKey := FCertificate.PublicKeyFromCertificate(AKey);
-      BIO_write(LBio, @LPubKey[0], Length(LPubKey));
-      LRsa := JoseSSL.PEM_read_bio_RSA_PUBKEY(LBio, nil, nil, nil);
-    end
+    LPem := TJOSEDefaultOpenSslPem.PublicKeyPemBytesFromKeyOrCert(AKey, FCertificate);
+    BIO_write(LBio, @LPem[0], Length(LPem));
+    if StartsWith(LPem, TJOSEDefaultOpenSslPem.PEM_PUBKEY_PKCS1) then
+      LRsa := PEM_read_bio_RSAPublicKey(LBio, nil, nil, nil)
     else
-    begin
-      BIO_write(LBio, @AKey[0], Length(AKey));
-      if StartsWith(AKey, TJOSEDefaultOpenSslPem.PEM_PUBKEY_PKCS1) then
-        LRsa := PEM_read_bio_RSAPublicKey(LBio, nil, nil, nil)
-      else
-        LRsa := JoseSSL.PEM_read_bio_RSA_PUBKEY(LBio, nil, nil, nil);
-    end;
+      LRsa := JoseSSL.PEM_read_bio_RSA_PUBKEY(LBio, nil, nil, nil);
 
     Result := (LRsa <> nil);
     if Result then
@@ -552,30 +556,10 @@ end;
 
 { TDefaultECDSAProvider }
 
-function TDefaultECDSAProvider.LoadPublicKeyFromCert(const ACertificate: TBytes; AExpected: TJOSECertificatePublicKey): PEVP_PKEY;
-var
-  LCer: PX509;
-  LAlg: Integer;
-  LExpectedNid: Integer;
+constructor TDefaultECDSAProvider.Create(ACertificate: IJOSECertificateProvider);
 begin
-{$IF CompilerVersion < 33 }
-  Result := nil;
-{$IFEND}
-  TJOSEDefaultOpenSslPem.LoadOpenSSL;
-
-  LCer := TJOSEDefaultOpenSslPem.LoadCertificate(ACertificate);
-  try
-    LAlg := OBJ_obj2nid(LCer.cert_info.key.algor.algorithm);
-    LExpectedNid := JoseExpectedNidForCertPublicKey(AExpected);
-    if LAlg <> LExpectedNid then
-      raise ESignException.Create('[OpenSSL] Certificate public key algorithm does not match expected type');
-
-    Result := X509_PUBKEY_get(LCer.cert_info.key);
-    if not Assigned(Result) then
-      raise ESignException.Create('[OpenSSL] Error extracting public key from X509 certificate');
-  finally
-    X509_free(LCer);
-  end;
+  inherited Create;
+  FCertificate := ACertificate;
 end;
 
 function TDefaultECDSAProvider.HashFromBytes(const AInput: TBytes; AAlg: TECDSAAlgorithm): TBytes;
@@ -648,12 +632,14 @@ end;
 function TDefaultECDSAProvider.LoadPublicKey(const AKey: TBytes): PEVP_PKEY;
 var
   LKeyBuffer: PBIO;
+  LPem: TBytes;
 begin
   TJOSEDefaultOpenSslPem.LoadOpenSSL;
 
   LKeyBuffer := BIO_new(BIO_s_mem);
   try
-    BIO_write(LKeyBuffer, @AKey[0], Length(AKey));
+    LPem := TJOSEDefaultOpenSslPem.PublicKeyPemBytesFromKeyOrCert(AKey, FCertificate);
+    BIO_write(LKeyBuffer, @LPem[0], Length(LPem));
 
     Result := JoseSSL.PEM_read_bio_PUBKEY(LKeyBuffer, nil, nil, nil);
     if Result = nil then
@@ -772,12 +758,14 @@ function TDefaultECDSAProvider.VerifyPublicKey(const AKey: TBytes): Boolean;
 var
   LBio: PBIO;
   LKey: PEVP_PKEY;
+  LPem: TBytes;
 begin
   TJOSEDefaultOpenSslPem.LoadOpenSSL;
 
   LBio := BIO_new(BIO_s_mem);
   try
-    BIO_write(LBio, @AKey[0], Length(AKey));
+    LPem := TJOSEDefaultOpenSslPem.PublicKeyPemBytesFromKeyOrCert(AKey, FCertificate);
+    BIO_write(LBio, @LPem[0], Length(LPem));
     LKey := JoseSSL.PEM_read_bio_PUBKEY(LBio, nil, nil, nil);
 
     Result := (LKey <> nil);
@@ -792,7 +780,7 @@ function TDefaultECDSAProvider.VerifyWithCertificate(const AInput, ASignature, A
 var
   LKey: PEVP_PKEY;
 begin
-  LKey := LoadPublicKeyFromCert(ACertificate, TJOSECertificatePublicKey.EC);
+  LKey := TJOSEDefaultOpenSslPem.LoadPublicKeyFromCert(ACertificate, TJOSECertificatePublicKey.EC);
   try
     Result := InternalVerify(AInput, ASignature, LKey, AAlg);
   finally
@@ -1040,5 +1028,34 @@ begin
   end;
 end;
 {$IFEND}
+
+{ TJOSEDefaultProviders }
+
+class procedure TJOSEDefaultProviders.Register;
+{$IFDEF RSA_SIGNING}
+var
+  LCert: IJOSECertificateProvider;
+{$ENDIF}
+begin
+  TJOSEProviders.Base64 := TDefaultBase64Provider.Create;
+  TJOSEProviders.HMAC := TDefaultHmacProvider.Create;
+{$IFDEF RSA_SIGNING}
+  LCert := TDefaultCertificateProvider.Create;
+  TJOSEProviders.Certificate := LCert;
+  TJOSEProviders.RSA := TDefaultRSAProvider.Create(LCert);
+  TJOSEProviders.ECDSA := TDefaultECDSAProvider.Create(LCert);
+{$ENDIF}
+end;
+
+class procedure TJOSEDefaultProviders.Unregister;
+begin
+  TJOSEProviders.Base64 := nil;
+  TJOSEProviders.HMAC := nil;
+{$IFDEF RSA_SIGNING}
+  TJOSEProviders.Certificate := nil;
+  TJOSEProviders.RSA := nil;
+  TJOSEProviders.ECDSA := nil;
+{$ENDIF}
+end;
 
 end.
