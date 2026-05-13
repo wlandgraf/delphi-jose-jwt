@@ -64,7 +64,7 @@ type
     function SignWithRsa(const AInput: TBytes; const AKey: IAsymmetricKeyParameter; AAlg: TRSAAlgorithm): TBytes;
     function VerifyWithRsa(const AInput, ASignature: TBytes; const AKey: IAsymmetricKeyParameter; AAlg: TRSAAlgorithm): Boolean;
   public
-    constructor Create(ACertificate: IJOSECertificateProvider);
+    constructor Create(const ACertificate: IJOSECertificateProvider);
     function Sign(const AInput, AKey: TBytes; AAlg: TRSAAlgorithm): TBytes;
     function Verify(const AInput, ASignature, AKey: TBytes; AAlg: TRSAAlgorithm): Boolean;
     function VerifyWithCertificate(const AInput, ASignature, ACertificate: TBytes; AAlg: TRSAAlgorithm): Boolean;
@@ -82,7 +82,7 @@ type
     function SignWithEc(const AInput: TBytes; const AKey: IAsymmetricKeyParameter; AAlg: TECDSAAlgorithm): TBytes;
     function VerifyWithEc(const AInput, ASignature: TBytes; const AKey: IAsymmetricKeyParameter; AAlg: TECDSAAlgorithm): Boolean;
   public
-    constructor Create(ACertificate: IJOSECertificateProvider);
+    constructor Create(const ACertificate: IJOSECertificateProvider);
     function Sign(const AInput, APrivateKey: TBytes; AAlg: TECDSAAlgorithm): TBytes;
     function Verify(const AInput, ASignature, APublicKey: TBytes; AAlg: TECDSAAlgorithm): Boolean;
     function VerifyWithCertificate(const AInput, ASignature, ACertificate: TBytes; AAlg: TECDSAAlgorithm): Boolean;
@@ -418,7 +418,7 @@ end;
 
 { TCryptoLibRSAProvider }
 
-constructor TCryptoLibRSAProvider.Create(ACertificate: IJOSECertificateProvider);
+constructor TCryptoLibRSAProvider.Create(const ACertificate: IJOSECertificateProvider);
 begin
   inherited Create;
   FCertificate := ACertificate;
@@ -539,7 +539,7 @@ end;
 
 { TCryptoLibECDSAProvider }
 
-constructor TCryptoLibECDSAProvider.Create(ACertificate: IJOSECertificateProvider);
+constructor TCryptoLibECDSAProvider.Create(const ACertificate: IJOSECertificateProvider);
 begin
   inherited Create;
   FCertificate := ACertificate;

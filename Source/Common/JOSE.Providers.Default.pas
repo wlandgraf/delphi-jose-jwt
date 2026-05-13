@@ -80,7 +80,7 @@ type
     function InternalVerify(const AInput, ASignature: TBytes; AKey: PRSA; AAlg: TRSAAlgorithm): Boolean;
     class function StartsWith(const ABuf, APrefix: TBytes): Boolean; static;
   public
-    constructor Create(ACertificate: IJOSECertificateProvider);
+    constructor Create(const ACertificate: IJOSECertificateProvider);
     function Sign(const AInput, AKey: TBytes; AAlg: TRSAAlgorithm): TBytes;
     function Verify(const AInput, ASignature, AKey: TBytes; AAlg: TRSAAlgorithm): Boolean;
     function VerifyWithCertificate(const AInput, ASignature, ACertificate: TBytes; AAlg: TRSAAlgorithm): Boolean;
@@ -99,7 +99,7 @@ type
     function Sig2OctetSequence(ASignature: PECDSA_SIG; AAlg: TECDSAAlgorithm): TBytes;
     function OctetSequence2Sig(const ASignature: TBytes; AAlg: TECDSAAlgorithm): PECDSA_SIG;
   public
-    constructor Create(ACertificate: IJOSECertificateProvider);
+    constructor Create(const ACertificate: IJOSECertificateProvider);
     function Sign(const AInput, APrivateKey: TBytes; AAlg: TECDSAAlgorithm): TBytes;
     function Verify(const AInput, ASignature, APublicKey: TBytes; AAlg: TECDSAAlgorithm): Boolean;
     function VerifyWithCertificate(const AInput, ASignature, ACertificate: TBytes; AAlg: TECDSAAlgorithm): Boolean;
@@ -328,7 +328,7 @@ end;
 
 { TDefaultRSAProvider }
 
-constructor TDefaultRSAProvider.Create(ACertificate: IJOSECertificateProvider);
+constructor TDefaultRSAProvider.Create(const ACertificate: IJOSECertificateProvider);
 begin
   inherited Create;
   FCertificate := ACertificate;
@@ -556,7 +556,7 @@ end;
 
 { TDefaultECDSAProvider }
 
-constructor TDefaultECDSAProvider.Create(ACertificate: IJOSECertificateProvider);
+constructor TDefaultECDSAProvider.Create(const ACertificate: IJOSECertificateProvider);
 begin
   inherited Create;
   FCertificate := ACertificate;
