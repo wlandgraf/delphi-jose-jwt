@@ -31,7 +31,8 @@ uses
   JOSE.Types.Bytes,
   JOSE.Providers.Interfaces,
   JOSE.Crypto.Algorithms,
-  ClpIAsymmetricKeyParameter;
+  ClpIAsymmetricKeyParameter,
+  ClpIAsn1Objects;
 
 type
   TCryptoLibBase64Provider = class(TInterfacedObject, IJOSEBase64Provider)
@@ -45,18 +46,23 @@ type
   end;
 
   TCryptoLibHmacProvider = class(TInterfacedObject, IJOSEHmacProvider)
+  strict private
+    function HmacMechanism(AAlg: THMACAlgorithm): string;
   public
     function Sign(const AInput, AKey: TBytes; AAlg: THMACAlgorithm): TBytes;
   end;
 
   TCryptoLibCertificateProvider = class(TInterfacedObject, IJOSECertificateProvider)
+  strict private
+    function ExpectedCertPkAlg(AExpected: TJOSECertificatePublicKey): IDerObjectIdentifier;
+    function WritePublicKeyPem(const APublicKey: IAsymmetricKeyParameter): TBytes;
   public
     function PublicKeyFromCertificate(const ACertificate: TBytes): TBytes;
     function VerifyCertificate(const ACertificate: TBytes; AExpected: TJOSECertificatePublicKey): Boolean;
   end;
 
   TCryptoLibRSAProvider = class(TInterfacedObject, IJOSESignerRSA)
-  private
+  strict private
     FCertificate: IJOSECertificateProvider;
     function PemToPublicKey(const APem: TBytes): IAsymmetricKeyParameter;
     function PemToPrivateKey(const APem: TBytes): IAsymmetricKeyParameter;
@@ -73,8 +79,9 @@ type
   end;
 
   TCryptoLibECDSAProvider = class(TInterfacedObject, IJOSESignerECDSA)
-  private
+  strict private
     FCertificate: IJOSECertificateProvider;
+    function ExpectedEcCurveOid(AAlg: TECDSAAlgorithm): IDerObjectIdentifier;
     procedure EnsureNamedCurve(const AKey: IAsymmetricKeyParameter; AAlg: TECDSAAlgorithm);
     function EcdsaMechanism(AAlg: TECDSAAlgorithm): string;
     function PemToPublicKey(const APem: TBytes): IAsymmetricKeyParameter;
@@ -118,7 +125,6 @@ uses
   ClpIX509CertificateParser,
   ClpIX509Certificate,
   ClpIAsymmetricCipherKeyPair,
-  ClpIAsn1Objects,
   ClpIX509Asn1Objects,
   ClpPkcsObjectIdentifiers,
   ClpX9ObjectIdentifiers,
@@ -202,7 +208,7 @@ end;
 
 { TCryptoLibHmacProvider }
 
-function HmacMechanism(AAlg: THMACAlgorithm): string;
+function TCryptoLibHmacProvider.HmacMechanism(AAlg: THMACAlgorithm): string;
 begin
   case AAlg of
     THMACAlgorithm.SHA256:
@@ -345,7 +351,7 @@ end;
 
 { TCryptoLibCertificateProvider }
 
-function ExpectedCertPkAlg(AExpected: TJOSECertificatePublicKey): IDerObjectIdentifier;
+function TCryptoLibCertificateProvider.ExpectedCertPkAlg(AExpected: TJOSECertificatePublicKey): IDerObjectIdentifier;
 begin
   case AExpected of
     TJOSECertificatePublicKey.RSA:
@@ -357,7 +363,7 @@ begin
   end;
 end;
 
-function WritePublicKeyPem(const APublicKey: IAsymmetricKeyParameter): TBytes;
+function TCryptoLibCertificateProvider.WritePublicKeyPem(const APublicKey: IAsymmetricKeyParameter): TBytes;
 var
   LStream: TMemoryStream;
   LWriter: TOpenSslPemWriter;
@@ -545,7 +551,7 @@ begin
   FCertificate := ACertificate;
 end;
 
-function ExpectedEcCurveOid(AAlg: TECDSAAlgorithm): IDerObjectIdentifier;
+function TCryptoLibECDSAProvider.ExpectedEcCurveOid(AAlg: TECDSAAlgorithm): IDerObjectIdentifier;
 begin
   case AAlg of
     TECDSAAlgorithm.ES256:
